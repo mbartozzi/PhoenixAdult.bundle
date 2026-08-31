@@ -6,15 +6,17 @@ Each search query can be comprised of *up to* 5 parts, depending on the supporte
 - `Actor(s)`
 - `Title` - The title/name of the scene.
 - `StudioID` - A numeric value found in the URL of a studio page.
+- `Studio` - Studio name used for manual add.
 - `ActressID` - An alphanumeric value found in the URL of an actress page. Typically similar to the name of the actress.
 - `SceneID` - A numeric value found in the URL of a scene page.
 - `Direct URL` - A string of characters at the end of a URL of a scene page. Typically includes some combination of a SceneID, Scene Title, or Actor.
 
 # Search types and their capabilities
-There are 3 available search/matching methods, as listed below:
+There are 4 available search/matching methods, as listed below:
 + **Enhanced Search:** `Title` `Actor` `Date` `SceneID`
 + **Limited Search:** `Title` `Actor`
 + **Exact Match:** `StudioID` `ActressID` `SceneID` `Direct URL`
++ **Manual Add:** Add `Date` `Actor` (And `Actor` And ...) In `Title` At `Studio`
 
 ## Enhanced Search
 #### Multi-search available.
@@ -50,6 +52,17 @@ There are 3 available search/matching methods, as listed below:
 + **Direct URL**
   - Can add the Date (before the URL).
   - Adding any additional terms (ie. Title/Actors) will cause issues with matching.
+
+## Manual Add
+*If the studio is not yet supported, you can add the scene manually. Check [the sitelist](./sitelist.md) for supported websites.*
++ **Add** Keyword Add tells PhoenixAdult you want to add the scene manually
++ **Date** You can add the date but is not required
++ **Actor** Adds actor. You can add multiple actors by typing 'And' between each one
++ **Title** After actor(s), keyword 'In' tells PhoenixAdult that scenetitle follows
++ **Studio** After title or actor(s), keyword 'At' tells PhoenixAdult that studio follows
++ **Genres** After all above, keyword 'With' tells PhoenixAdult what genres should be added
+
+*Check [Issue1275](https://github.com/PAhelper/PhoenixAdult.bundle/issues/1275) if you have fields that contain some of the keywords and couldn't match properly.*
 
 ## Notes
 + **Date Add** - Some sites don't make release dates available. The agent will scrape the date from your filename/search term, instead.
@@ -88,3 +101,34 @@ Here are some examples for each type of search:
       - `Mylf` - `2019.01.01` - `1809 manicured-milf-masturbation` (taken from the URL [https://www.mylf.com/movies/**1809/manicured-milf-masturbation**](https://dereferer.me/?https%3A//www.mylf.com/movies/1809/manicured-milf-masturbation))
       - `Wicked` - `2019.10.10` - `Stranger-Than-Fiction 77675` (taken from the URL [https://www.wicked.com/en/movie/**Stranger-Than-Fiction/77675**](https://dereferer.me/?https%3A//www.wicked.com/en/movie/Stranger-Than-Fiction/77675))
       - `Wicked` - `2019.10.10` - `Stranger Than Fiction Scene 1 167063` (taken from the URL [https://www.wicked.com/en/video/**Stranger-Than-Fiction-Scene-1/167063**](https://dereferer.me/?https%3A//www.wicked.com/en/video/Stranger-Than-Fiction-Scene-1/167063))
+
++ **Manual Add** examples:
+  - Add only actress and studio:
+    - Add `Actress` At `Studio`
+  - Add Date, actress and studio:
+    - Add `Date` `Actress` At `Studio`
+  - Add Date, actresses, title and studio:
+    - Add `Date` `Actress` And `Actress` In `Scene` At `Studio`
+  - Add Date, actresses, title, studio, and genres:
+    - Add `Date` `Actress` And `Actress` In `Scene` At `Studio` With `Genre1`, `Genre2`
+
+# Custom Title Naming
+
+#### Create a custom title from data pulled by scrapers
+
+Enable custom title formats in agent settings
+
+Create a string with a combination of fixed characters and metadata tags
+
+Tags should be used in the format: `{Tag Name}`
+
+- `Title` - The title/name of the scene originally pulled by scraper
+- `Actors` - Comma separated string consisting of all actors
+- `Studio` - Studio producing video
+- `Series` - Specific series for video
+
+### Examples:
+- \[Series\] Title:
+    - `[{Series}] {Title}`
+- \[Actors\] Title:
+    - `[{Actors}] {Title}`

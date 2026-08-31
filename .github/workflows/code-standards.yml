@@ -1,0 +1,22 @@
+name: Code Standards
+on:
+  pull_request:
+    branches:
+      - master
+jobs:
+  flake8-lint:
+    runs-on: ubuntu-latest
+    container:
+      image: python:2.7-buster
+    name: Lint
+    steps:
+      - name: Check out source repository
+        uses: actions/checkout@v6
+
+      - name: flake8 Lint
+        uses: reviewdog/action-flake8@v3
+        with:
+          github_token: '${{ secrets.GITHUB_TOKEN }}'
+          filter_mode: file
+          fail_level: warning
+          flake8_args: '--ignore E501,E722,F,C9,N8 --exclude Contents/Libraries/Shared'

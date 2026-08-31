@@ -1,36 +1,42 @@
 import PAsearchSites
-import PAactors
 import PAutils
 
 
-def search(results, encodedTitle, searchTitle, siteNum, lang, searchDate):
-    encodedTitle = searchTitle.replace(' ', '-').lower()
-
-    req = PAutils.HTTPRequest(PAsearchSites.getSearchSearchURL(siteNum) + searchTitle[:1])
-    actorResults = HTML.ElementFromString(req.text)
-
-    actorPage = actorResults.xpath('//a[contains(@href, "%s")]/@href' % encodedTitle)[0]
-    req = PAutils.HTTPRequest(actorPage)
+def search(results, lang, siteNum, searchData):
+    searchData.encoded = searchData.title.replace(' ', '_').lower()
+    req = PAutils.HTTPRequest(PAsearchSites.getSearchSearchURL(siteNum) + searchData.encoded)
     searchResults = HTML.ElementFromString(req.text)
-    for searchResult in searchResults.xpath('//div[@class="content-box"]'):
-        titleNoFormatting = searchResult.xpath('.//h2//span')[0].text_content().strip()
+
+    for searchResult in searchResults.xpath('//div[@class="col-sm-3"]'):
+        titleNoFormatting = searchResult.xpath('.//h5')[0].text_content().strip()
         sceneURL = searchResult.xpath('.//a/@href')[0]
         curID = PAutils.Encode(sceneURL)
 
-        releaseDate = parse(searchDate).strftime('%Y-%m-%d') if searchDate else ''
+        date = searchResult.xpath('.//div[@class="pull-right"][./i[@class="fa fa-calendar"]]')
+        if date:
+            parseDate = date[0].text_content().strip()
+            parseDate = re.sub(r'(st|nd|rd|th)', '', parseDate)
+            releaseDate = datetime.strptime(parseDate, '%d %b %Y').strftime('%Y-%m-%d')
+        else:
+            releaseDate = searchData.dateFormat() if searchData.date else ''
 
-        score = 100 - Util.LevenshteinDistance(searchDate, releaseDate)
+        displayDate = releaseDate if date else ''
 
-        results.Append(MetadataSearchResult(id='%s|%d|%s' % (curID, siteNum, releaseDate), name='%s [%s]' % (titleNoFormatting, PAsearchSites.getSearchSiteName(siteNum)), score=score, lang=lang))
+        if searchData.date and displayDate:
+            score = 100 - Util.LevenshteinDistance(searchData.date, releaseDate)
+        else:
+            score = 100 - Util.LevenshteinDistance(searchData.title.lower(), titleNoFormatting.lower())
+
+        results.Append(MetadataSearchResult(id='%s|%d|%s' % (curID, siteNum, releaseDate), name='%s [%s] %s' % (titleNoFormatting, PAsearchSites.getSearchSiteName(siteNum), displayDate), score=score, lang=lang))
 
     return results
 
 
-def update(metadata, siteID, movieGenres, movieActors):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
-        sceneURL = PAsearchSites.getSearchBaseURL(siteID) + sceneURL
+        sceneURL = PAsearchSites.getSearchBaseURL(siteNum) + sceneURL
     sceneDate = metadata_id[2]
     req = PAutils.HTTPRequest(sceneURL)
     detailsPageElements = HTML.ElementFromString(req.text)
@@ -42,13 +48,12 @@ def update(metadata, siteID, movieGenres, movieActors):
     metadata.summary = detailsPageElements.xpath('//div[@class="description"]//p')[0].text_content().strip()
 
     # Studio
-    metadata.studio = PAsearchSites.getSearchSiteName(siteID)
+    metadata.studio = 'Radical Cash'
 
-    # Collections / Tagline
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteID)
+    # Tagline and Collection(s)
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Genres
     genres = detailsPageElements.xpath('//dd[2]')
@@ -63,8 +68,7 @@ def update(metadata, siteID, movieGenres, movieActors):
         metadata.originally_available_at = date_object
         metadata.year = metadata.originally_available_at.year
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
 
     actors = detailsPageElements.xpath('//dd[1]')
     for actorLink in actors:
@@ -81,12 +85,10 @@ def update(metadata, siteID, movieGenres, movieActors):
             pass
 
     # Director
-    metadata.directors.clear()
-    director = metadata.directors.new()
-    director.name = 'Charles Dera'
+    directorName = 'Charles Dera'
+    movieActors.addDirector(directorName, '')
 
     # Posters
-    art = []
     req = PAutils.HTTPRequest(detailsPageElements.xpath('//dd[1]//a/@href')[0])
     posters = HTML.ElementFromString(req.text)
     for poster in posters.xpath('//a[contains(@href, "%s")]//img/@src' % sceneURL):
@@ -97,7 +99,7 @@ def update(metadata, siteID, movieGenres, movieActors):
         if not PAsearchSites.posterAlreadyExists(posterUrl, metadata):
             # Download image file for analysis
             try:
-                image = PAutils.HTTPRequest(posterUrl, headers={'Referer': 'http://www.google.com'})
+                image = PAutils.HTTPRequest(posterUrl)
                 im = StringIO(image.content)
                 resized_image = Image.open(im)
                 width, height = resized_image.size

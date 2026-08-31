@@ -2,10 +2,10 @@ import PAsearchSites
 import PAutils
 
 
-def search(results, encodedTitle, searchTitle, siteNum, lang, searchDate):
+def search(results, lang, siteNum, searchData):
     params = json.dumps({
         'sortBy': 'MOST_RELEVANT',
-        'searchQuery': searchTitle,
+        'searchQuery': searchData.title,
         'videoView': 'MEDIUM'
     })
     req = PAutils.HTTPRequest(PAsearchSites.getSearchSearchURL(siteNum), params=params, headers={'Content-Type': 'application/json'})
@@ -17,27 +17,24 @@ def search(results, encodedTitle, searchTitle, siteNum, lang, searchDate):
         siteName = PAsearchSites.getSearchSiteName(siteNum)
         titleNoFormatting = '%s [%s] %s' % (searchResult['title'], siteName, releaseDate)
 
-        if searchDate:
-            score = 100 - Util.LevenshteinDistance(searchDate, releaseDate)
+        if searchData.date:
+            score = 100 - Util.LevenshteinDistance(searchData.date, releaseDate)
         else:
-            score = 100 - Util.LevenshteinDistance(searchTitle.lower(), titleNoFormatting.lower())
+            score = 100 - Util.LevenshteinDistance(searchData.title.lower(), titleNoFormatting.lower())
 
         results.Append(MetadataSearchResult(id='%s|%d|%s' % (curID, siteNum, posterID), name=titleNoFormatting, score=score, lang=lang))
 
     return results
 
 
-def update(metadata, siteID, movieGenres, movieActors):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
-        sceneURL = PAsearchSites.getSearchBaseURL(siteID) + "/" + sceneURL
+        sceneURL = PAsearchSites.getSearchBaseURL(siteNum) + "/" + sceneURL
     posterUri = PAutils.Decode(metadata_id[2])
     req = PAutils.HTTPRequest(sceneURL)
     detailsPageElements = HTML.ElementFromString(req.text)
-
-    movieGenres.clearGenres()
-    movieActors.clearActors()
 
     # Title
     metadata.title = detailsPageElements.xpath('//h1[@class="video-detail-name"]')[0].text_content().strip()
@@ -47,12 +44,10 @@ def update(metadata, siteID, movieGenres, movieActors):
     metadata.summary = ' '.join(rawSummary.split())
 
     # Studio
-    metadata.studio = PAsearchSites.getSearchSiteName(siteID)
+    metadata.studio = PAsearchSites.getSearchSiteName(siteNum)
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    metadata.tagline = metadata.studio
-    metadata.collections.add(metadata.studio)
+    movieCollections.addCollection(metadata.studio)
 
     # Release Date
     date = detailsPageElements.xpath('//span[@class="videoClip__Details-infoValue"]')[0].text_content().strip()
@@ -66,7 +61,7 @@ def update(metadata, siteID, movieGenres, movieActors):
         genreName = genreLink.text_content().strip().lower()
         movieGenres.addGenre(genreName)
 
-    # Actors
+    # Actor(s)
     actors = detailsPageElements.xpath('//span[@itemprop="actors"]/a')
     for actorLink in detailsPageElements.xpath('//span[@itemprop="actors"]/a'):
         actorName = actorLink.text_content().strip()
@@ -84,9 +79,7 @@ def update(metadata, siteID, movieGenres, movieActors):
         movieActors.addActor(actorName, actorPhotoURL)
 
     # Photos
-    art = []
-
-    for photo in detailsPageElements.xpath('//img[contains(@class, "videoClip__Details--galleryItem")]/data-big'):
+    for photo in detailsPageElements.xpath('//img[contains(@class, "videoClip__Details--galleryItem")]/@data-big'):
         photoURLs = photo.split(',')
         photoURL = photoURLs[len(photoURLs) - 1][:-6].replace('https', 'http')
 
@@ -97,7 +90,7 @@ def update(metadata, siteID, movieGenres, movieActors):
         if not PAsearchSites.posterAlreadyExists(posterUrl, metadata):
             # Download image file for analysis
             try:
-                image = PAutils.HTTPRequest(posterUrl, headers={'Referer': 'http://www.google.com'})
+                image = PAutils.HTTPRequest(posterUrl)
                 im = StringIO(image.content)
                 resized_image = Image.open(im)
                 width, height = resized_image.size

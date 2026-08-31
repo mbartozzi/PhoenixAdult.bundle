@@ -1,70 +1,79 @@
 import PAsearchSites
-import PAgenres
-import PAactors
 import PAutils
 
 
-def search(results, encodedTitle, searchTitle, siteNum, lang, searchDate):
-    sceneID = searchTitle.split(' ', 1)[0]
-    try:
-        sceneTitle = encodedTitle.split(' ', 1)[1]
-    except:
-        sceneTitle = ''
+def getJSONfromPage(url):
+    req = PAutils.HTTPRequest(url)
+    detailsPageElements = HTML.ElementFromString(req.text)
 
-    req = PAutils.HTTPRequest(PAsearchSites.getSearchSearchURL(siteNum) + sceneID)
-    searchResults = HTML.ElementFromString(req.text)
-    for searchResult in searchResults.xpath('//div[@class="video-details"]'):
-        titleNoFormatting = searchResult.xpath('//h2[@class="h2 m-0"]')[0].text_content()
-        curID = searchTitle.lower().replace(' ', '-')
-        subSite = searchResult.xpath('//a[@class="username "]')[0].text_content().strip()
-        releaseDate = parse(searchDate).strftime('%Y-%m-%d') if searchDate else ''
+    if req.ok:
+        data = None
+        node = detailsPageElements.xpath('//script[@type="application/ld+json"]')
+        if node:
+            data = node[0].text_content().strip()
 
-        if sceneTitle:
-            score = 100 - Util.LevenshteinDistance(sceneTitle.lower(), titleNoFormatting.lower())
-        else:
-            score = 90
+        if data:
+            return json.loads(data)
 
-        results.Append(MetadataSearchResult(id='%s|%d|%s' % (curID, siteNum, releaseDate), name='%s [ManyVids/%s]' % (titleNoFormatting, subSite), score=score, lang=lang))
+    return None
+
+
+def search(results, lang, siteNum, searchData):
+    sceneID = None
+    parts = searchData.title.split()
+    if unicode(parts[0], 'UTF-8').isdigit():
+        sceneID = parts[0]
+        searchData.title = searchData.title.replace(sceneID, '', 1).strip()
+
+    sceneURL = PAsearchSites.getSearchSearchURL(siteNum) + sceneID
+    searchResult = getJSONfromPage(sceneURL)
+
+    titleNoFormatting = searchResult['name']
+    curID = PAutils.Encode(sceneURL)
+    searchID = sceneURL.rsplit('/')[-1].split('-')[0]
+    subSite = searchResult['creator']['name']
+
+    date = searchResult['uploadDate']
+    if date:
+        releaseDate = parse(date).strftime('%Y-%m-%d')
+    else:
+        releaseDate = searchData.dateFormat() if searchData.date else ''
+    displayDate = releaseDate if date else ''
+
+    if sceneID and sceneID == searchID:
+        score = 100
+    elif searchData.date:
+        score = 100 - Util.LevenshteinDistance(searchData.date, releaseDate)
+    else:
+        score = 100 - Util.LevenshteinDistance(searchData.title.lower(), titleNoFormatting.lower())
+
+    results.Append(MetadataSearchResult(id='%s|%d|%s' % (curID, siteNum, releaseDate), name='%s [ManyVids/%s] %s' % (titleNoFormatting, subSite, displayDate), score=score, lang=lang))
 
     return results
 
 
-def update(metadata, siteID, movieGenres, movieActors):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = metadata.id.split('|')
-    sceneURL = PAsearchSites.getSearchBaseURL(siteID) + '/video/' + metadata_id[0]
     sceneDate = metadata_id[2]
-    req = PAutils.HTTPRequest(sceneURL)
-    detailsPageElements = HTML.ElementFromString(req.text)
+    sceneURL = PAutils.Decode(metadata_id[0])
+
+    videoURL = 'https://www.manyvids.com/bff/store/video/%s' % sceneURL.rsplit('/')[-1].split('-')[0]
+    videoPageElements = PAutils.HTTPRequest(videoURL).json()['data']
 
     # Title
-    metadata.title = detailsPageElements.xpath('//h2[@class="h2 m-0"]')[0].text_content().strip()
+    metadata.title = PAutils.parseTitle(videoPageElements['title'].strip(), siteNum)
 
     # Summary
-    try:
-        paragraphs = detailsPageElements.xpath('//div[@class="desc-text"]')
-        pNum = 0
-        summary = ""
-        for paragraph in paragraphs:
-            if pNum >= 0 and pNum < (len(paragraphs)):
-                summary = summary + '\n\n' + paragraph.text_content()
-            pNum += 1
-    except:
-        pass
-    if summary == '':
-        try:
-            summary = detailsPageElements.xpath('//div[@class="desc-text"]')[0].text_content().strip()
-        except:
-            pass
-    metadata.summary = summary.strip()
+    if 'description' in videoPageElements:
+        metadata.summary = videoPageElements['description'].strip()
 
     # Studio
     metadata.studio = 'ManyVids'
 
-    # Collections / Tagline
-    metadata.collections.clear()
-    tagline = detailsPageElements.xpath('//a[contains(@class,"username ")]')[0].text_content().strip()
+    # Tagline and Collection(s)
+    tagline = videoPageElements['model']['displayName']
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     if sceneDate:
@@ -73,40 +82,27 @@ def update(metadata, siteID, movieGenres, movieActors):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
-    genres = detailsPageElements.xpath('//div[@class="tags"]/a')
-    for genreLink in genres:
-        genreName = genreLink.text_content().strip()
+    for genreLink in videoPageElements['tagList']:
+        genreName = genreLink['label'].strip()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
-    actorName = detailsPageElements.xpath('//a[contains(@class,"username ")]')[0].text_content()
-    actorPhotoURL = ''
-
-    try:
-        actorPhotoURL = detailsPageElements.xpath('//div[@class="pr-2"]/a/img')[0].get('src')
-    except:
-        pass
+    # Actor(s)
+    actor = videoPageElements['model']
+    actorName = actor['displayName']
+    actorPhotoURL = actor['avatar']
 
     movieActors.addActor(actorName, actorPhotoURL)
 
     # Posters
-    art = []
-    xpaths = [
-        '//div[@id="rmpPlayer"]/@data-video-screenshot'
-    ]
-    for xpath in xpaths:
-        for poster in detailsPageElements.xpath(xpath):
-            art.append(poster)
+    art.append(videoPageElements['screenshot'])
 
     Log('Artwork found: %d' % len(art))
     for idx, posterUrl in enumerate(art, 1):
         if not PAsearchSites.posterAlreadyExists(posterUrl, metadata):
             # Download image file for analysis
             try:
-                image = PAutils.HTTPRequest(posterUrl, headers={'Referer': 'http://www.google.com'})
+                image = PAutils.HTTPRequest(posterUrl)
                 im = StringIO(image.content)
                 resized_image = Image.open(im)
                 width, height = resized_image.size

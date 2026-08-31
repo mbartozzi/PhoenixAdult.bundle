@@ -1,5 +1,10 @@
-.gitattributes
 .pylintrc
 .venv/
 .vscode/
+.idea
 __pycache__/
+
+*.pyc
+
+Resources/
+!Resources/actorDummy.png

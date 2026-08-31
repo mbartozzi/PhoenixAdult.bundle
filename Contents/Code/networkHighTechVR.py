@@ -1,82 +1,129 @@
 import PAsearchSites
-import PAgenres
 import PAutils
 
+xPathMap = {
+    'SexBabesVR': {
+        'date': '//div[contains(@class, "video-detail__description--container")]/div[last()]',
+        'summary': '//div[contains(@class, "video-detail")]/div/p',
+        'tags': '//a[contains(@class, "tag")]',
+        'actor': '//div[@class="video-detail__description--author"]//a',
+        'actorPhoto': '//img[contains(@class, "cover-picture")]',
+        'images': '//a[contains(@data-fancybox, "gallery")]//img/@src',
+        'poster': '//dl8-video'
+    },
+    'StasyQ VR': {
+        'date': '//div[@class="video-meta-date"]',
+        'summary': '//div[@class="video-info"]/p',
+        'tags': '//div[contains(@class, "my-2 lh-lg")]//a',
+        'actor': '//div[@class="model-one-inner js-trigger-lazy-item"]//a',
+        'actorPhoto': '//div[contains(@class, "model-one-inner")]//img',
+        'images': '//div[contains(@class, "video-gallery")]//div//figure//a/@href',
+        'poster': '//div[@class="splash-screen fullscreen-message is-visible"] | //dl8-video'
+    },
+    'RealJamVR': {
+        'date': '//div[@class="ms-4 text-nowrap"]',
+        'summary': '//div[@class="opacity-75 my-2"]',
+        'tags': '//div[contains(@class, "my-2 lh-lg")]//a',
+        'actor': '//div[@class="scene-view mx-auto"]/a',
+        'actorPhoto': '//div[@class="col-12 col-lg-4 pe-lg-0"]//img',
+        'images': '//img[@class="img-thumb"]/@src',
+        'poster': '//div[@class="splash-screen fullscreen-message is-visible"] | //dl8-video'
+    }
+}
 
-def search(results, encodedTitle, searchTitle, siteNum, lang, searchDate):
-    encodedTitle = searchTitle.lower().replace(' ', '-', 1).replace(' ', '_')
-    req = PAutils.HTTPRequest(PAsearchSites.getSearchSearchURL(siteNum) + encodedTitle)
+
+def search(results, lang, siteNum, searchData):
+    searchData.encoded = slugify(searchData.title.lower())
+    req = PAutils.HTTPRequest(PAsearchSites.getSearchSearchURL(siteNum) + searchData.encoded)
     searchResults = HTML.ElementFromString(req.text)
 
     titleNoFormatting = searchResults.xpath('//h1')[0].text_content().strip()
-    curID = encodedTitle
+    curID = searchData.encoded
 
-    date = searchResults.xpath('//span[@class="date-display-single"] | //span[@class="u-inline-block u-mr--nine"] | //div[@class="video-meta-date"] | //div[@class="date"]')[0].text_content().strip()
-    releaseDate = parse(date).strftime('%Y-%m-%d')
+    releaseDate = ''
+    for key in xPathMap.keys():
+        date = searchResults.xpath(xPathMap[key]['date'])
+        if date:
+            date = date[0].text_content().strip()
+            releaseDate = parse(date).strftime('%Y-%m-%d')
+            break
 
     score = 100
 
-    results.Append(MetadataSearchResult(id='%s|%d' % (curID, siteNum), name='%s [%s] %s' % (titleNoFormatting, PAsearchSites.getSearchSiteName(siteNum), releaseDate), score=score, lang=lang))
+    results.Append(MetadataSearchResult(id='%s|%d' % (curID, siteNum), name='%s [%s] %s' % (
+        titleNoFormatting, PAsearchSites.getSearchSiteName(siteNum), releaseDate), score=score, lang=lang))
 
     return results
 
 
-def update(metadata, siteID, movieGenres, movieActors):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
-    sceneURL = PAsearchSites.getSearchSearchURL(siteID) + metadata_id[0]
+    sceneURL = PAsearchSites.getSearchSearchURL(siteNum) + metadata_id[0]
     req = PAutils.HTTPRequest(sceneURL)
     detailsPageElements = HTML.ElementFromString(req.text)
+
+    siteName = PAsearchSites.getSearchSiteName(siteNum)
+    siteXPath = xPathMap.get(siteName)
 
     # Title
     metadata.title = detailsPageElements.xpath('//h1')[0].text_content().strip()
 
     # Summary
-    metadata.summary = detailsPageElements.xpath('//div[@class="video-group-bottom"]/p | //p[@class="u-lh--opt"] | //div[@class="video-info"]/p | //div[@class="desc"]')[0].text_content().strip()
+    maybeSummary = detailsPageElements.xpath(siteXPath['summary'])
+    if maybeSummary:
+        metadata.summary = maybeSummary[0].text_content().strip()
 
     # Studio
-    metadata.studio = 'HighTechVR'
+    metadata.studio = siteName
 
-    # Tagline and Collection
-    metadata.collections.clear()
-    tagline = detailsPageElements.xpath('//title')[0].text_content().split('|')[1].strip()
+    # Tagline and Collection(s)
+    tagline = detailsPageElements.xpath('//title')[0].text_content().strip()
+    if '|' in tagline:
+        tagline = tagline.split('|')[1].strip()
+    elif '-' in tagline:
+        tagline = tagline.split('-')[0].strip()
+
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
-    date = detailsPageElements.xpath('//span[@class="date-display-single"] | //span[@class="u-inline-block u-mr--nine"] | //div[@class="video-meta-date"] | //div[@class="date"]')[0].text_content().strip()
-    date_object = parse(date)
-    metadata.originally_available_at = date_object
-    metadata.year = metadata.originally_available_at.year
+    maybeDate = detailsPageElements.xpath(siteXPath['date'])
+    if maybeDate:
+        date = maybeDate[0].text_content().strip()
+        date_object = parse(date)
+        metadata.originally_available_at = date_object
+        metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
-    for genreLink in detailsPageElements.xpath('//div[contains(@class, "video-tags")]//a | //div[@class="tags"]//a'):
+    for genreLink in detailsPageElements.xpath(siteXPath['tags']):
         genreName = genreLink.text_content().strip()
 
         movieGenres.addGenre(genreName)
 
-    # Actors
-    movieActors.clearActors()
-    for actorLink in detailsPageElements.xpath('//div[@class="video-actress-name"]//a | //div[@class="u-mt--three u-mb--three"]//a | //div[@class="model-one-inner js-trigger-lazy-item"]//a | //div[@class="featuring commed"]//a'):
+    # Actor(s)
+    for actorLink in detailsPageElements.xpath(siteXPath['actor']):
         actorName = actorLink.text_content().strip()
-
-        actorPageURL = PAsearchSites.getSearchBaseURL(siteID) + actorLink.get('href')
+        actorPageURL = PAsearchSites.getSearchBaseURL(siteNum) + actorLink.get('href')
         req = PAutils.HTTPRequest(actorPageURL)
         actorPage = HTML.ElementFromString(req.text)
-        actorPhotoURL = actorPage.xpath('//div[contains(@class, "model-img-wrapper")]/figure/a/img | //div[contains(@class, "u-ratio--model-poster")]//img | //div[contains(@class, "model-one-inner")]//img | //div[contains(@class, "row actor-info")]//img')[0].get('src').split('?')[0]
+        actorPhotoURL = ""
+        maybeActorPhoto = actorPage.xpath(siteXPath['actorPhoto'])
+        if maybeActorPhoto:
+            actorPhotoURL = maybeActorPhoto[0].get('src').split('?')[0]
 
         movieActors.addActor(actorName, actorPhotoURL)
 
     # Posters
-    art = []
-
-    for poster in detailsPageElements.xpath('//div[contains(@class,"video-gallery")]//div//figure//a | //a[@class="u-block u-ratio u-ratio--lightbox u-bgc--back-opt u-z--zero"] | //div[@class="scene-previews-container"]//a'):
-        img = poster.get('href').split('?')[0]
+    for poster in detailsPageElements.xpath(siteXPath['images']):
+        img = poster.split('?')[0]
         if img.startswith('http'):
             art.append(img)
 
-    poster = detailsPageElements.xpath('//div[@class="splash-screen fullscreen-message is-visible"]/@style')[0]
-    img = poster.split('url(')[1].split(')')[0]
+    poster = detailsPageElements.xpath(siteXPath['poster'])[0]
+    img = poster.get('poster')
+    if not img:
+        img = poster.get('style').split('url(')[1].split(')')[0]
+
     art.append(img)
 
     Log('Artwork found: %d' % len(art))
@@ -84,7 +131,7 @@ def update(metadata, siteID, movieGenres, movieActors):
         if not PAsearchSites.posterAlreadyExists(posterUrl, metadata):
             # Download image file for analysis
             try:
-                image = PAutils.HTTPRequest(posterUrl, headers={'Referer': 'http://www.google.com'})
+                image = PAutils.HTTPRequest(posterUrl)
                 im = StringIO(image.content)
                 resized_image = Image.open(im)
                 width, height = resized_image.size

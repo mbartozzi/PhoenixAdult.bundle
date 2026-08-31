@@ -1,14 +1,12 @@
 import PAsearchSites
-import PAgenres
-import PAactors
 import PAutils
 
 
-def search(results, encodedTitle, searchTitle, siteNum, lang, searchDate):
-    directURL = '%s%s.html' % (PAsearchSites.getSearchSearchURL(siteNum), searchTitle.lower().replace(' ', '-'))
+def search(results, lang, siteNum, searchData):
+    directURL = '%s%s.html' % (PAsearchSites.getSearchSearchURL(siteNum), searchData.title.lower().replace(' ', '-'))
     searchResults = [directURL]
 
-    googleResults = PAutils.getFromGoogleSearch(searchTitle, siteNum)
+    googleResults = PAutils.getFromSearchEngine(searchData.title, siteNum)
     for sceneURL in googleResults:
         sceneURL = sceneURL.lower()
         if ('/trailers/' in sceneURL) and sceneURL not in searchResults:
@@ -21,20 +19,20 @@ def search(results, encodedTitle, searchTitle, siteNum, lang, searchDate):
 
             titleNoFormatting = searchResult.xpath('//h2[@class="title"]/text()')[0]
             curID = PAutils.Encode(sceneURL)
-            releaseDate = parse(searchDate) if searchDate else ''
+            releaseDate = parse(searchData.date) if searchData.date else ''
 
-            score = 100 - Util.LevenshteinDistance(searchTitle, titleNoFormatting)
+            score = 100 - Util.LevenshteinDistance(searchData.title, titleNoFormatting)
 
             results.Append(MetadataSearchResult(id='%s|%d|%s' % (curID, siteNum, releaseDate), name='%s [Girls Rimming]' % titleNoFormatting, score=score, lang=lang))
 
     return results
 
 
-def update(metadata, siteID, movieGenres, movieActors):
+def update(metadata, lang, siteNum, movieGenres, movieActors, movieCollections, art):
     metadata_id = str(metadata.id).split('|')
     sceneURL = PAutils.Decode(metadata_id[0])
     if not sceneURL.startswith('http'):
-        sceneURL = PAsearchSites.getSearchBaseURL(siteID) + sceneURL
+        sceneURL = PAsearchSites.getSearchBaseURL(siteNum) + sceneURL
     sceneDate = metadata_id[2]
     req = PAutils.HTTPRequest(sceneURL)
     detailsPageElements = HTML.ElementFromString(req.text)
@@ -49,10 +47,9 @@ def update(metadata, siteID, movieGenres, movieActors):
     metadata.studio = 'Girls Rimming'
 
     # Tagline and Collection(s)
-    metadata.collections.clear()
-    tagline = PAsearchSites.getSearchSiteName(siteID).strip()
+    tagline = PAsearchSites.getSearchSiteName(siteNum)
     metadata.tagline = tagline
-    metadata.collections.add(tagline)
+    movieCollections.addCollection(tagline)
 
     # Release Date
     if sceneDate:
@@ -61,7 +58,6 @@ def update(metadata, siteID, movieGenres, movieActors):
         metadata.year = metadata.originally_available_at.year
 
     # Genres
-    movieGenres.clearGenres()
     actors = []
 
     genres = detailsPageElements.xpath('//meta[@name="keywords"]/@content')[0].split(',')
@@ -74,17 +70,16 @@ def update(metadata, siteID, movieGenres, movieActors):
 
     movieGenres.addGenre('Rim Job')
 
-    # Actors
-    movieActors.clearActors()
+    # Actor(s)
     for actorLink in actors:
         actorLink = actorLink.split(' Id ')
         actorName = actorLink[0].strip()
         actorPhotoURL = ''
 
-        actorPageURL = '%s/tour/models/%s.html' % (PAsearchSites.getSearchBaseURL(siteID), actorName.lower().replace(' ', '-'))
+        actorPageURL = '%s/tour/models/%s.html' % (PAsearchSites.getSearchBaseURL(siteNum), actorName.lower().replace(' ', '-'))
         data = PAutils.HTTPRequest(actorPageURL)
         if not data or data == 'Page not found':
-            googleResults = PAutils.getFromGoogleSearch(actorName, siteID)
+            googleResults = PAutils.getFromSearchEngine(actorName, siteNum)
             for actorURL in googleResults:
                 actorURL = actorURL.lower()
                 if ('/models/' in actorURL):
@@ -97,16 +92,14 @@ def update(metadata, siteID, movieGenres, movieActors):
         movieActors.addActor(actorName, actorPhotoURL)
 
     # Posters
-    art = [
-        detailsPageElements.xpath('//div[@id="fakeplayer"]//img/@src0_3x')[0]
-    ]
+    art.append(detailsPageElements.xpath('//div[@id="fakeplayer"]//img/@src0_3x')[0])
 
     Log('Artwork found: %d' % len(art))
     for idx, posterUrl in enumerate(art, 1):
         if not PAsearchSites.posterAlreadyExists(posterUrl, metadata):
             # Download image file for analysis
             try:
-                image = PAutils.HTTPRequest(posterUrl, headers={'Referer': 'http://www.google.com'})
+                image = PAutils.HTTPRequest(posterUrl)
                 im = StringIO(image.content)
                 resized_image = Image.open(im)
                 width, height = resized_image.size

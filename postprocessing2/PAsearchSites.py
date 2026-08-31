@@ -482,7 +482,7 @@ searchSites[471] = ("18VR", "18VR", "https://www.18vr.com", "https://18vr.com/vr
 searchSites[472] = ("KinkVR", "KinkVR", "http://www.kinkvr.com", "https://kinkvr.com/bdsm-vr-videos/search/")
 searchSites[473] = ("VRCosplayX", "VRCosplayX", "https://www.vrcosplayx.com", "https://vrcosplayx.com/cosplaypornvideos/search/")
 searchSites[474] = ("VRBangers", "VRBangers", "https://www.vrbangers.com", "https://vrbangers.com/?post_type=video&s=")
-searchSites[475] = ("SexBabesVR", "SexBabesVR", "https://www.sexbabesvr.com", "https://sexbabesvr.com/virtualreality/scene/id/")
+searchSites[475] = ("SexBabesVR", "SexBabesVR", "https://www.sexbabesvr.com", "https://sexbabesvr.com/video/")
 searchSites[476] = ("WankzVR", "WankzVR", "https://www.wankzvr.com", "https://www.wankzvr.com/search?q=")
 searchSites[477] = ("MilfVR", "MilfVR", "https://www.milfvr.com", "https://www.milfvr.com/search?q=")
 searchSites[478] = ("Joymii", "Joymii", "https://www.joymii.com", "https://www.joymii.com/search?query=")
@@ -702,7 +702,7 @@ searchSites[691] = ("Watch Your Mom", "Watch Your Mom", "https://tour.naughtyame
 searchSites[692] = ("Butt Plays", "Butt Plays", "http://www.21sextury.com", "https://tsmkfa364q-dsn.algolia.net/1/indexes/*/queries")
 searchSites[693] = ("Dorcel Vision", "Dorcel Vision", "https://www.dorcelvision.com", "https://www.dorcelvision.com/en/search?type=4&keyword=")
 searchSites[694] = ("Feminized", "Feminized", "http://feminized.com", "http://feminized.com/tour/search.php?st=advanced&qany=")
-searchSites[695] = ("XConfessions", "XConfessions", "https://xconfessions.com", "https://xconfessions.com/api/search")
+searchSites[695] = ("XConfessions", "XConfessions", "https://api.xconfessions.com", "https://api.xconfessions.com/api/search")
 searchSites[696] = ("Czech Amateurs", "Czech Amateurs", "https://czechamateurs.com", "https://czechamateurs.com/tour/search/?q=")
 searchSites[697] = ("Czech Bangbus", "Czech Bangbus", "https://czechbangbus.com", "https://czechbangbus.com/tour/search/?q=")
 searchSites[698] = ("Czech Bitch", "Czech Bitch", "https://czechbitch.com", "https://czechbitch.com/tour/search/?q=")
@@ -987,6 +987,12 @@ searchSites[976] = ("Backroom Casting Couch", "Backroom Casting Couch", "https:/
 searchSites[977] = ("Black Ambush", "Black Ambush", "https://blackambush.com/", "https://blackambush.com/free/girls.php")
 searchSites[978] = ("Exploited College Girls", "Exploited College Girls", "https://exploitedcollegegirls.com/", "https://exploitedcollegegirls.com/free/girls.php?alpha=")
 searchSites[979] = ("Desperate Amateurs", "Desperate Amateurs", "https://desperateamateurs.com/", "https://desperateamateurs.com/fintour/search.php?st=advanced&qall=")
+searchSites[980] = ("Melena Maria Rya", "Melena Maria Rya", "https://www.melenamariarya.com", "https://www.melenamariarya.com/scene/")
+searchSites[981] = ("ALS Angels", "ALS Angels", "http://www.alsangels.com", "http://www.alsangels.com/dailyvideos.html")
+searchSites[982] = ("Watch4Beauty", "Watch4Beauty", "https://www.watch4beauty.com", "https://www.watch4beauty.com/updates/")
+searchSites[983] = ("Femjoy", "Femjoy", "https://femjoy.com", "/search-videos?query=")
+searchSites[1040] = ("Reality Sis", "Reality Sis", "https://nubiles-porn.com", "https://nubiles-porn.com/video/gallery/website/73")
+searchSites[1890] = ("LustCinema", "LustCinema", "https://next-prod-api.lustcinema.com", "https://next-prod-api.lustcinema.com/api/search")
 
 
 def getSearchBaseURL(siteID):
@@ -1023,7 +1029,7 @@ def getSearchSiteIDByFilter(searchFilter):
     if searchResults:
         from operator import itemgetter
 
-        ##print('Site found with method #3')
+        # print('Site found with method #3')
         return max(searchResults, key=itemgetter(1))[0]
 
     # Method #2
@@ -1034,7 +1040,7 @@ def getSearchSiteIDByFilter(searchFilter):
             siteNameF = sites[0].lower().replace(" ", "").replace("'", "")
 
             if searchFilterF == siteNameF:
-                ##print('Site found with method #2')
+                # print('Site found with method #2')
                 return searchID
         except:
             pass
@@ -1055,7 +1061,7 @@ def getSearchSiteIDByFilter(searchFilter):
             siteNameF = sites[0].lower().replace(" ", "").replace("'", "")
 
             if siteNameF in searchFilterF[0] or siteNameF in searchFilterF[1]:
-                ##print('Site found with method #1')
+                # print('Site found with method #1')
                 return searchID
         except:
             pass
@@ -1142,6 +1148,7 @@ def getSearchSettings(filename_title):
         ('^fhl ', 'FakeHostel '),
         ('^fho ', 'FakehubOriginals '),
         ('^fittingroom ', 'Fitting-Room '),
+        ('^fj ', 'Femjoy '),
         ('^fka ', 'FakeAgent '),
         ('^fm ', 'FuckingMachines '),
         ('^fms ', 'FantasyMassage '),
@@ -1195,6 +1202,7 @@ def getSearchSettings(filename_title):
         ('^mlib ', 'MilfsLikeItBig '),
         ('^mlt ', 'MomsLickTeens '),
         ('^mmgs ', 'MommysGirl '),
+        ('^mmr ', 'MelenaMariaRya '),
         ('^mmts ', 'MomsTeachSex '),
         ('^mnm ', 'MyNaughtyMassage '),
         ('^mom ', 'MomXXX '),
@@ -1266,6 +1274,7 @@ def getSearchSettings(filename_title):
         ('^tspa ', 'TrickySpa '),
         ('^tss ', 'ThatSitcomShow '),
         ('^tuf ', 'TheUpperFloor '),
+        ('^w4b ', 'Watch4Beauty '),
         ('^wa ', 'WhippedAss '),
         ('^wfbg ', 'WeFuckBlackGirls '),
         ('^wkp ', 'Wicked '),
